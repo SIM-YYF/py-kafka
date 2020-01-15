@@ -1,8 +1,11 @@
+from copy import deepcopy
+
 from confluent_kafka import Producer, KafkaError
 import json
 import time
 import pandas as pd
 import datetime
+import random
 
 if __name__ == '__main__':
 
@@ -23,7 +26,7 @@ if __name__ == '__main__':
 
 
     # 每次读取20条数据
-    csv_reader = pd.read_csv('断泵记录-2018-1-4.csv',
+    csv_reader = pd.read_csv('2.csv',
                              chunksize=20,  # 每次读取20数据
                              skiprows=0,  # 忽略标题行
                              sep=',',
@@ -56,19 +59,42 @@ if __name__ == '__main__':
             print(name, group.to_dict(orient='records'))
 
         print('-----------DataFrame转为dict-------------')
-        _records = df.to_dict(orient='records')
-        for r in _records:
-            time_stamp = r['timestamp']
-            del r['timestamp']
-            print(r)
-            for key, value in r.items():
-                print(f'{key} = {value}')
-                _point_data = dict()
-                _point_data.update({'tags': {'node_id': key}, 'fields': {'value': value}, 'time':  time.mktime(datetime.datetime.strptime(time_stamp, '%Y-%m-%d %H:%M:%S').timetuple())})
-                record_key = "alice"
-                record_value = json.dumps(_point_data)
-                p.produce('test', key=record_key, value=record_value.encode('utf-8'), on_delivery=acked,
-                          timestamp=int(round(time.time() * 1000000)), headers={})
-                p.poll(timeout=0)
 
-            p.flush(timeout=10)
+        for i in range(1000):
+            time.sleep(10)
+            _records = df.to_dict(orient='records')
+            cp_records = deepcopy(_records)
+            for r in _records:
+                time_stamp = r['timestamp']
+                del r['timestamp']
+                print(r)
+                for key, value in r.items():
+                    print(f'{key} = {value}')
+                    _point_data = dict()
+                    _point_data.update({'tags': {'node_id': key}, 'fields': {'value': value}, 'time':  time.mktime(datetime.datetime.strptime(time_stamp, '%Y-%m-%d %H:%M:%S').timetuple())})
+                    record_key = "alice"
+                    record_value = json.dumps([_point_data])
+                    p.produce('system-metrics', key=record_key, value=record_value.encode('utf-8'), on_delivery=acked,
+                              timestamp=int(round(time.time() * 1000000)), headers={})
+                    p.poll(timeout=0)
+
+                p.flush(timeout=10)
+
+            for r in cp_records:
+                time_stamp = r['timestamp']
+                del r['timestamp']
+                print(r)
+                for key, value in r.items():
+                    print(f'{key} = {value}')
+                    _point_data = dict()
+                    value = 'true' if random.randint(0,1) == 0 else 'false'
+                    _point_data.update({'tags': {'node_id': key}, 'fields': {'value': value}, 'time': time.mktime(
+                        datetime.datetime.strptime(time_stamp, '%Y-%m-%d %H:%M:%S').timetuple())})
+                    record_key = "alice"
+                    record_value = json.dumps([_point_data])
+                    p.produce('system-metrics', key=record_key, value=record_value.encode('utf-8'), on_delivery=acked,
+                              timestamp=int(round(time.time() * 1000000)), headers={})
+                    p.poll(timeout=0)
+
+                p.flush(timeout=10)
+
