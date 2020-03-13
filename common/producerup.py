@@ -35,13 +35,13 @@ if __name__ == '__main__':
                              )
     for df in csv_reader:  # df为一个DataFrame
 
-        for i in range(1000000000):
+        for i in range(1):
 
             _records = df.to_dict(orient='records')
             for r in _records:
                 record_value = json.dumps(r)
                 print(record_value)
-                p.produce('flink-partition', value=record_value.encode('utf-8'), on_delivery=acked)
+                p.produce('flink-st', value=record_value.encode('utf-8'), on_delivery=acked)
                 p.poll(timeout=0)
 
             p.flush(timeout=10)
